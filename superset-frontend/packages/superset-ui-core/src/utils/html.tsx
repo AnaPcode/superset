@@ -54,17 +54,26 @@ export function hasHtmlTagPattern(str: string): boolean {
 export function isProbablyHTML(text: string) {
   const cleanedStr = text.trim().toLowerCase();
 
+  // Check for DOCTYPE or full HTML document structure
   if (
-    cleanedStr.startsWith('<!doctype html>') &&
-    hasHtmlTagPattern(cleanedStr)
+    cleanedStr.startsWith('<!doctype html>') ||
+    cleanedStr.startsWith('<html') ||
+    cleanedStr.startsWith('<body')
   ) {
     return true;
   }
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(cleanedStr, 'text/html');
-  return Array.from(doc.body.childNodes).some(({ nodeType }) => nodeType === 1);
+  const elementNodes = Array.from(doc.body.childNodes).filter(
+    ({ nodeType }) => nodeType === 1,
+  );
+
+  // Only consider it HTML if there are multiple element nodes
+  // Single elements like <div>test</div> should be displayed as literal text
+  return elementNodes.length > 1;
 }
+
 
 export function sanitizeHtmlIfNeeded(htmlString: string) {
   return isProbablyHTML(htmlString) ? sanitizeHtml(htmlString) : htmlString;
