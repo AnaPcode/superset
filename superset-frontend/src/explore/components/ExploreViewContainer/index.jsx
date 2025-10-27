@@ -71,6 +71,8 @@ import DataSourcePanel from '../DatasourcePanel';
 import ConnectedExploreChartHeader from '../ExploreChartHeader';
 import ExploreContainer from '../ExploreContainer';
 
+const originalDocumentTitle = document.title;
+
 const propTypes = {
   ...ExploreChartPanel.propTypes,
   actions: PropTypes.object.isRequired,
@@ -510,6 +512,15 @@ function ExploreViewContainer(props) {
       reRenderChart();
     }
   }, [props.ownState]);
+
+  useEffect(() => {
+    if (props.sliceName) {
+      document.title = props.sliceName;
+    }
+    return () => {
+      document.title = originalDocumentTitle;
+    };
+  }, [props.sliceName]);
 
   if (chartIsStale) {
     props.actions.logEvent(LOG_ACTIONS_CHANGE_EXPLORE_CONTROLS);
