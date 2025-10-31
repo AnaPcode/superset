@@ -299,3 +299,26 @@ test('does omit hiddenFormData when query_mode is not enabled', async () => {
     expect(formData[key]).toBeUndefined();
   });
 });
+
+test('updates document title when chart has a name', async () => {
+  const customState = {
+    ...reduxState,
+    explore: { ...reduxState.explore, sliceName: 'My Test Chart' },
+  };
+  await waitFor(() => renderWithRouter({ initialState: customState }));
+  expect(document.title).toBe('My Test Chart');
+});
+
+test('restores original title when unmounting', async () => {
+  const originalTitle = document.title;
+  const customState = {
+    ...reduxState,
+    explore: { ...reduxState.explore, sliceName: 'Temp Chart' },
+  };
+  const { unmount } = await waitFor(() =>
+    renderWithRouter({ initialState: customState }),
+  );
+  expect(document.title).toBe('Temp Chart');
+  unmount();
+  expect(document.title).toBe(originalTitle);
+});
