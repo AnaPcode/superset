@@ -18,7 +18,7 @@
  */
 import { QueryMode, TimeGranularity, VizType } from '@superset-ui/core';
 import buildQuery from '../src/buildQuery';
-import { TableChartFormData } from '../src/types';
+import { TableChartFormData, PercentCalculationType } from '../src/types';
 
 const basicFormData: TableChartFormData = {
   viz_type: VizType.Table,
@@ -156,6 +156,35 @@ describe('plugin-chart-table', () => {
       // Extras in summary query
       expect(queries[1].extras?.time_grain_sqla).toBeUndefined();
       expect(queries[1].extras?.where).toEqual("(status IN ('In Process'))");
+    });
+    it('should add contribution post-processing in row_limit mode (default)', () => {
+      const query = buildQuery({
+        ...basicFormData,
+        query_mode: QueryMode.Aggregate,
+        metrics: ['aaa'],
+        percent_metrics: ['bbb'],
+        percent_calculation_type: PercentCalculationType.VisibleRows,
+      }).queries[0];
+      expect(query.post_processing).toEqual([
+        {
+          operation: 'contribution',
+          options: {
+            columns: ['bbb'],
+            rename_columns: ['%bbb'],
+          },
+        },
+      ]);
+    });
+
+    it('should skip contribution post-processing in all_data mode', () => {
+      const query = buildQuery({
+        ...basicFormData,
+        query_mode: QueryMode.Aggregate,
+        metrics: ['aaa'],
+        percent_metrics: ['bbb'],
+        percent_calculation_type: PercentCalculationType.AllData,
+      }).queries[0];
+      expect(query.post_processing).toEqual([]);
     });
   });
 });

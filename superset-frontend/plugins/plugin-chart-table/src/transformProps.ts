@@ -49,6 +49,7 @@ import {
   BasicColorFormatterType,
   ColorSchemeEnum,
   DataColumnMeta,
+  PercentCalculationType,
   TableChartProps,
   TableChartTransformedProps,
   TableColumnConfig,
@@ -285,12 +286,42 @@ const processColumns = memoizeOne(function processColumns(
         config,
       };
     });
-  return [metrics, percentMetrics, columns] as [
+  return [metrics, percentMetrics, rawPercentMetrics, columns] as [
     typeof metrics,
     typeof percentMetrics,
+    typeof rawPercentMetrics,
     typeof columns,
   ];
 }, isEqualColumns);
+
+/**
+ * Calculate percentage metrics from full dataset totals.
+ * Used when percent_calculation_type is 'all_data'.
+ */
+function calculateAllDataPercentages(
+  data: DataRecord[],
+  rawPercentMetrics: string[],
+  totals: DataRecord | undefined,
+): DataRecord[] {
+  if (!totals || !rawPercentMetrics.length) {
+    return data;
+  }
+
+  return data.map(row => {
+    const newRow = { ...row };
+    rawPercentMetrics.forEach(metricKey => {
+      const totalValue = totals[metricKey] as number;
+      const rowValue = row[metricKey] as number;
+
+      if (totalValue && totalValue !== 0 && rowValue != null) {
+        newRow[`%${metricKey}`] = rowValue / totalValue;
+      } else {
+        newRow[`%${metricKey}`] = null;
+      }
+    });
+    return newRow;
+  });
+}
 
 const getComparisonColConfig = (
   label: string,
@@ -468,6 +499,7 @@ const transformProps = (
     order_desc: sortDesc = false,
     query_mode: queryMode,
     show_totals: showTotals,
+    percent_calculation_type: percentCalculationType,
     conditional_formatting: conditionalFormatting,
     allow_rearrange_columns: allowRearrangeColumns,
     allow_render_html: allowRenderHtml,
@@ -621,7 +653,8 @@ const transformProps = (
     ? ensureIsArray(timeOffsets)[0]
     : '';
 
-  const [metrics, percentMetrics, columns] = processColumns(chartProps);
+  let [metrics, percentMetrics, rawPercentMetrics, columns] =
+    processColumns(chartProps);
   let comparisonColumns: DataColumnMeta[] = [];
   if (isUsingTimeComparison) {
     comparisonColumns = processComparisonColumns(
@@ -642,9 +675,40 @@ const transformProps = (
     [baseQuery, totalQuery] = queriesData;
     rowCount = baseQuery?.rowcount ?? 0;
   }
-  const data = processDataRecords(baseQuery?.data, columns);
+  let data = processDataRecords(baseQuery?.data, columns);
+
+  // Calculate "all_data" percentages if that mode is selected
+  const isAllDataMode =
+    percentCalculationType === PercentCalculationType.AllData;
+  if (isAllDataMode && rawPercentMetrics.length > 0 && totalQuery?.data?.[0]) {
+    data = calculateAllDataPercentages(
+      data,
+      rawPercentMetrics,
+      totalQuery.data[0],
+    );
+
+    // Add percent metric columns since backend didn't create them in AllData mode
+    // Only add if they don't already exist in columns
+    const existingColumnKeys = new Set(columns.map(col => col.key));
+    const percentMetricColumns: DataColumnMeta[] = rawPercentMetrics
+      .filter(metricKey => !existingColumnKeys.has(`%${metricKey}`))
+      .map(metricKey => {
+        const percentKey = `%${metricKey}`;
+        return {
+          key: percentKey,
+          label: percentKey,
+          dataType: GenericDataType.Numeric,
+          isNumeric: true,
+          isMetric: false,
+          isPercentMetric: true,
+          formatter: getNumberFormatter(PERCENT_3_POINT),
+        };
+      });
+    columns = [...columns, ...percentMetricColumns];
+  }
+
   const comparisonData = processComparisonDataRecords(
-    baseQuery?.data,
+    isAllDataMode ? data : baseQuery?.data,
     columns,
     comparisonSuffix,
   );

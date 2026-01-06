@@ -82,6 +82,7 @@ export type TableChartFormData = QueryFormData & {
   page_length?: string | number | null; // null means auto-paginate
   metrics?: QueryFormMetric[] | null;
   percent_metrics?: QueryFormMetric[] | null;
+  percent_calculation_type?: PercentCalculationType;
   timeseries_limit_metric?: QueryFormMetric[] | QueryFormMetric | null;
   groupby?: QueryFormMetric[] | null;
   all_columns?: QueryFormMetric[] | null;
@@ -151,6 +152,11 @@ export interface TableChartTransformedProps<D extends DataRecord = DataRecord> {
 export enum ColorSchemeEnum {
   'Green' = 'Green',
   'Red' = 'Red',
+}
+
+export enum PercentCalculationType {
+  VisibleRows = 'visible_rows',
+  AllData = 'all_data',
 }
 
 export default {};

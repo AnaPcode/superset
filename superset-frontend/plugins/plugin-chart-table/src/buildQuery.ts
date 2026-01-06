@@ -33,7 +33,7 @@ import {
   timeCompareOperator,
 } from '@superset-ui/chart-controls';
 import { isEmpty } from 'lodash';
-import { TableChartFormData } from './types';
+import { TableChartFormData, PercentCalculationType } from './types';
 import { updateExternalFormData } from './DataTable/utils/externalAPIs';
 
 /**
@@ -60,6 +60,7 @@ const buildQuery: BuildQuery<TableChartFormData> = (
     percent_metrics: percentMetrics,
     order_desc: orderDesc = false,
     extra_form_data,
+    percent_calculation_type: percentCalculationType,
   } = formData;
   const queryMode = getQueryMode(formData);
   const sortByMetric = ensureIsArray(formData.timeseries_limit_metric)[0];
@@ -145,15 +146,19 @@ const buildQuery: BuildQuery<TableChartFormData> = (
           metrics.concat(percentMetrics),
           getMetricLabel,
         );
-        postProcessing = [
-          {
-            operation: 'contribution',
-            options: {
-              columns: percentMetricLabels,
-              rename_columns: percentMetricLabels.map(x => `%${x}`),
+        // Only use backend contribution for "row_limit" mode (default)
+        // For "all_data" mode, we calculate in frontend using totals query
+        if (percentCalculationType !== PercentCalculationType.AllData) {
+          postProcessing = [
+            {
+              operation: 'contribution',
+              options: {
+                columns: percentMetricLabels,
+                rename_columns: percentMetricLabels.map(x => `%${x}`),
+              },
             },
-          },
-        ];
+          ];
+        }
       }
       // Add the operator for the time comparison if some is selected
       if (!isEmpty(timeOffsets)) {
@@ -233,11 +238,14 @@ const buildQuery: BuildQuery<TableChartFormData> = (
     });
 
     const extraQueries: QueryObject[] = [];
-    if (
+    // Need totals query for show_totals OR for "all_data" percent calculation
+    const needsTotalsQuery =
       metrics?.length &&
-      formData.show_totals &&
-      queryMode === QueryMode.Aggregate
-    ) {
+      queryMode === QueryMode.Aggregate &&
+      (formData.show_totals ||
+        (percentMetrics?.length &&
+          percentCalculationType === PercentCalculationType.AllData));
+    if (needsTotalsQuery) {
       extraQueries.push({
         ...queryObject,
         columns: [],

@@ -47,7 +47,7 @@ import {
 
 import { isEmpty } from 'lodash';
 import { PAGE_SIZE_OPTIONS } from './consts';
-import { ColorSchemeEnum } from './types';
+import { ColorSchemeEnum, PercentCalculationType } from './types';
 
 function getQueryMode(controls: ControlStateMapping): QueryMode {
   const mode = controls?.query_mode?.value;
@@ -122,7 +122,7 @@ const percentMetricsControl: typeof sharedControls.metrics = {
   label: t('Percentage metrics'),
   description: t(
     'Select one or many metrics to display, that will be displayed in the percentages of total. ' +
-      'Percentage metrics will be calculated only from data within the row limit. ' +
+      'Use the "Percentage calculation" option to control how percentages are calculated. ' +
       'You can use an aggregation function on a column or write custom SQL to create a percentage metric.',
   ),
   visibility: isAggMode,
@@ -297,6 +297,28 @@ const config: ControlPanelConfig = {
           {
             name: 'percent_metrics',
             config: percentMetricsControl,
+          },
+        ],
+        [
+          {
+            name: 'percent_calculation_type',
+            config: {
+              type: 'SelectControl',
+              label: t('Percentage calculation'),
+              default: PercentCalculationType.VisibleRows,
+              choices: [
+                [PercentCalculationType.VisibleRows, t('Row limit')],
+                [PercentCalculationType.AllData, t('All records')],
+              ],
+              description: t(
+                '"Row limit" calculates percentages from visible rows specified by the row limit. ' +
+                  '"All records" calculates percentages of the full dataset.',
+              ),
+              renderTrigger: false,
+              visibility: ({ controls }: ControlPanelsContainerProps) =>
+                isAggMode({ controls }) &&
+                !isEmpty(controls?.percent_metrics?.value),
+            },
           },
         ],
         ['adhoc_filters'],
